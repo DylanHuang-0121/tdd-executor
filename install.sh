@@ -2,7 +2,6 @@
 #
 # TDD Pipeline Executor 安装脚本
 # 支持 CodeFuse、Aone Copilot 和 Claude Code
-# 支持本地安装和远程安装
 #
 
 set -e
@@ -14,67 +13,15 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 技能名称
+# 技能名称和仓库
 SKILL_NAME="tdd-pipeline-executor"
 SKILL_REPO="https://github.com/DylanHuang-0121/tdd-executor.git"
 
-# 检测安装模式
-if [ -f "$(dirname "${BASH_SOURCE[0]}")/SKILL.md" ]; then
-    # 本地安装模式
-    SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    INSTALL_MODE="local"
-else
-    # 远程安装模式
-    SKILL_DIR=$(mktemp -d)
-    INSTALL_MODE="remote"
-fi
-
-# 打印带颜色的消息
-print_info() {
-    echo -e "${BLUE}ℹ ${NC}$1"
-}
-
-print_success() {
-    echo -e "${GREEN}✓${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}✗${NC} $1"
-}
-
-# 清理临时文件
-cleanup() {
-    if [ "$INSTALL_MODE" = "remote" ] && [ -d "$SKILL_DIR" ]; then
-        print_info "清理临时文件..."
-        rm -rf "$SKILL_DIR"
-    fi
-}
-
-# 注册清理函数
-trap cleanup EXIT
-
-# 下载技能文件（远程模式）
-download_skill() {
-    print_info "正在从远程仓库下载..."
-    
-    # 检查 git 是否可用
-    if ! command -v git &> /dev/null; then
-        print_error "未找到 git 命令，无法下载"
-        exit 1
-    fi
-    
-    # 克隆仓库到临时目录
-    git clone --depth 1 "$SKILL_REPO" "$SKILL_DIR" || {
-        print_error "克隆仓库失败"
-        exit 1
-    }
-    
-    print_success "下载完成"
-}
+# 打印函数
+print_info() { echo -e "${BLUE}ℹ ${NC}$1"; }
+print_success() { echo -e "${GREEN}✓${NC} $1"; }
+print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
+print_error() { echo -e "${RED}✗${NC} $1"; }
 
 # 检测平台
 detect_platform() {
@@ -82,159 +29,138 @@ detect_platform() {
         echo "aone_copilot"
     elif [ -d "$HOME/.claude/skills" ]; then
         echo "claude_code"
-    elif command -v codefuse &> /dev/null; then
+    elif [ -d "$HOME/.codefuse/skills" ]; then
         echo "codefuse"
     else
         echo "unknown"
     fi
 }
 
+# 下载仓库到临时目录
+download_repo() {
+    local temp_dir=$(mktemp -d)
+    print_info "正在从 GitHub 下载..."
+    
+    git clone --depth 1 "$SKILL_REPO" "$temp_dir" || {
+        print_error "克隆仓库失败"
+        rm -rf "$temp_dir"
+        exit 1
+    }
+    
+    echo "$temp_dir"
+}
+
+# 安装 Python 模块到用户空间
+install_python_module() {
+    local source_dir="$1"
+    
+    print_info "安装 Python CLI 工具..."
+    
+    # 创建 Python 包目录
+    local python_dir="$HOME/.tdd-toolkit"
+    mkdir -p "$python_dir"
+    
+    # 复制必要的 Python 文件
+    cp -r "$source_dir/tdd-toolkit" "$python_dir/" 2>/dev/null || true
+    cp "$source_dir/__main__.py" "$python_dir/" 2>/dev/null || true
+    cp "$source_dir/utils.py" "$python_dir/" 2>/dev/null || true
+    cp "$source_dir/tdd-pipeline.py" "$python_dir/" 2>/dev/null || true
+    cp "$source_dir/issue-tracker.py" "$python_dir/" 2>/dev/null || true
+    cp "$source_dir/tdd-runner.py" "$python_dir/" 2>/dev/null || true
+    cp "$source_dir/requirements.txt" "$python_dir/" 2>/dev/null || true
+    
+    # 创建可执行脚本
+    local bin_dir="$HOME/.local/bin"
+    mkdir -p "$bin_dir"
+    
+    cat > "$bin_dir/tdd-toolkit" << 'EOF'
+#!/bin/bash
+python3 -m tdd_toolkit "$@"
+EOF
+    chmod +x "$bin_dir/tdd-toolkit"
+    
+    print_success "Python CLI 已安装到: $bin_dir/tdd-toolkit"
+    
+    # 检查 PATH
+    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        print_warning "请将以下内容添加到 ~/.zshrc 或 ~/.bashrc:"
+        echo '  export PATH="$HOME/.local/bin:$PATH"'
+        echo "  然后运行: source ~/.zshrc"
+    fi
+}
+
 # 安装到 Aone Copilot
 install_aone_copilot() {
-    print_info "安装到 Aone Copilot..."
-    
+    local source_dir="$1"
     local target_dir="$HOME/.aone_copilot/skills/$SKILL_NAME"
+    
+    print_info "安装到 Aone Copilot..."
     
     # 创建目录
     mkdir -p "$target_dir"
     
-    # 复制文件
-    cp -r "$SKILL_DIR"/* "$target_dir/"
+    # 复制所有必要文件
+    print_info "复制文件到: $target_dir"
+    
+    # 复制 SKILL.md
+    if [ -f "$source_dir/SKILL.md" ]; then
+        cp "$source_dir/SKILL.md" "$target_dir/"
+        print_success "SKILL.md 已复制"
+    else
+        print_error "找不到 SKILL.md"
+    fi
+    
+    # 复制 Python 模块目录
+    if [ -d "$source_dir/tdd-toolkit" ]; then
+        cp -r "$source_dir/tdd-toolkit" "$target_dir/"
+        print_success "tdd-toolkit/ 目录已复制"
+    else
+        print_warning "找不到 tdd-toolkit 目录"
+    fi
+    
+    # 复制其他必要文件
+    for file in __main__.py utils.py tdd-pipeline.py issue-tracker.py tdd-runner.py requirements.txt; do
+        if [ -f "$source_dir/$file" ]; then
+            cp "$source_dir/$file" "$target_dir/"
+            print_success "$file 已复制"
+        fi
+    done
     
     # 设置权限
     chmod +x "$target_dir"/*.py 2>/dev/null || true
     
     print_success "已安装到: $target_dir"
-    print_info "Python 脚本位置: $target_dir"
     
-    # 验证安装
-    if [ -f "$target_dir/SKILL.md" ]; then
-        print_success "SKILL.md 已就位"
-    else
-        print_error "SKILL.md 文件缺失"
-        return 1
-    fi
+    # 验证并显示文件列表
+    echo ""
+    print_info "验证安装结果:"
+    ls -lh "$target_dir" | tail -n +2
 }
 
 # 安装到 Claude Code
 install_claude_code() {
-    print_info "安装到 Claude Code..."
-    
+    local source_dir="$1"
     local target_dir="$HOME/.claude/skills/$SKILL_NAME"
     
-    # 创建目录
-    mkdir -p "$target_dir"
+    print_info "安装到 Claude Code..."
     
-    # 只复制 SKILL.md（Claude Code 只需要这个）
-    cp "$SKILL_DIR/SKILL.md" "$target_dir/"
+    mkdir -p "$target_dir"
+    cp "$source_dir/SKILL.md" "$target_dir/"
     
     print_success "已安装到: $target_dir"
-    
-    # 验证安装
-    if [ -f "$target_dir/SKILL.md" ]; then
-        print_success "SKILL.md 已就位"
-    else
-        print_error "SKILL.md 文件缺失"
-        return 1
-    fi
 }
 
 # 安装到 CodeFuse
 install_codefuse() {
-    print_info "安装到 CodeFuse..."
-    
+    local source_dir="$1"
     local target_dir="$HOME/.codefuse/skills/$SKILL_NAME"
     
-    # 创建目录
+    print_info "安装到 CodeFuse..."
+    
     mkdir -p "$target_dir"
-    
-    # 复制所有文件
-    cp -r "$SKILL_DIR"/* "$target_dir/"
-    
-    # 创建 .skill 包（如果需要）
-    if command -v codefuse &> /dev/null; then
-        print_info "检测到 CodeFuse CLI，正在打包..."
-        cd "$SKILL_DIR"
-        codefuse package skill . -o "$target_dir/$SKILL_NAME.skill" || {
-            print_warning "打包失败，跳过 .skill 文件创建"
-        }
-        cd - > /dev/null
-    fi
-    
-    # 设置权限
-    chmod +x "$target_dir"/*.py 2>/dev/null || true
+    cp "$source_dir/SKILL.md" "$target_dir/"
     
     print_success "已安装到: $target_dir"
-    
-    # 验证安装
-    if [ -f "$target_dir/SKILL.md" ]; then
-        print_success "SKILL.md 已就位"
-    else
-        print_error "SKILL.md 文件缺失"
-        return 1
-    fi
-}
-
-# 手动安装
-manual_install() {
-    print_warning "未检测到已知平台，使用手动安装模式"
-    echo ""
-    echo "请选择目标平台:"
-    echo "  1) Aone Copilot (~/.aone_copilot/skills/)"
-    echo "  2) Claude Code (~/.claude/skills/)"
-    echo "  3) CodeFuse (~/.codefuse/skills/)"
-    echo "  4) 自定义路径"
-    echo "  5) 退出"
-    echo ""
-    read -p "请输入选项 [1-5]: " choice
-    
-    case $choice in
-        1)
-            install_aone_copilot
-            ;;
-        2)
-            install_claude_code
-            ;;
-        3)
-            install_codefuse
-            ;;
-        4)
-            read -p "请输入目标路径: " custom_path
-            mkdir -p "$custom_path/$SKILL_NAME"
-            cp -r "$SKILL_DIR"/* "$custom_path/$SKILL_NAME/"
-            print_success "已安装到: $custom_path/$SKILL_NAME"
-            ;;
-        5)
-            print_info "已取消安装"
-            exit 0
-            ;;
-        *)
-            print_error "无效选项"
-            exit 1
-            ;;
-    esac
-}
-
-# 显示安装信息
-show_install_info() {
-    echo ""
-    echo "======================================"
-    echo "  TDD Pipeline Executor 安装完成"
-    echo "======================================"
-    echo ""
-    echo "技能名称: $SKILL_NAME"
-    echo "安装位置: $1"
-    echo ""
-    echo "使用方法:"
-    echo "  1. 重启你的 AI 助手（Aone Copilot / Claude Code / CodeFuse）"
-    echo "  2. 使用以下命令测试:"
-    echo "     python -m tdd_toolkit init"
-    echo ""
-    echo "  3. 或者直接在对话中使用:"
-    echo "     '使用 TDD Pipeline 实现一个功能'"
-    echo ""
-    echo "更多信息请查看: $1/SKILL.md"
-    echo ""
 }
 
 # 主安装流程
@@ -245,43 +171,87 @@ main() {
     echo "╚════════════════════════════════════════╝"
     echo ""
     
-    # 如果是远程模式，先下载文件
-    if [ "$INSTALL_MODE" = "remote" ]; then
-        download_skill
+    local source_dir=""
+    local need_cleanup=false
+    
+    # 检测安装模式
+    if [ -f "./SKILL.md" ]; then
+        print_info "检测到本地安装模式"
+        source_dir="$(pwd)"
+    elif [ -n "${BASH_SOURCE[0]}" ] && [ -f "$(dirname "${BASH_SOURCE[0]}")/SKILL.md" ]; then
+        print_info "检测到本地安装模式"
+        source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    else
+        print_info "检测到远程安装模式"
+        source_dir=$(download_repo)
+        need_cleanup=true
     fi
     
-    # 检查必要文件
-    if [ ! -f "$SKILL_DIR/SKILL.md" ]; then
+    # 验证源文件
+    if [ ! -f "$source_dir/SKILL.md" ]; then
         print_error "找不到 SKILL.md 文件"
+        [ "$need_cleanup" = true ] && rm -rf "$source_dir"
         exit 1
     fi
     
-    # 检测平台
+    print_success "源文件准备完成: $source_dir"
+    echo ""
+    
+    # 安装 Python 模块（全局可用）
+    install_python_module "$source_dir"
+    echo ""
+    
+    # 检测并安装到平台
     print_info "检测运行环境..."
     platform=$(detect_platform)
     
     case $platform in
         aone_copilot)
             print_success "检测到 Aone Copilot"
-            install_aone_copilot
-            show_install_info "$HOME/.aone_copilot/skills/$SKILL_NAME"
+            install_aone_copilot "$source_dir"
             ;;
         claude_code)
             print_success "检测到 Claude Code"
-            install_claude_code
-            show_install_info "$HOME/.claude/skills/$SKILL_NAME"
+            install_claude_code "$source_dir"
             ;;
         codefuse)
             print_success "检测到 CodeFuse"
-            install_codefuse
-            show_install_info "$HOME/.codefuse/skills/$SKILL_NAME"
+            install_codefuse "$source_dir"
             ;;
         *)
-            manual_install
+            print_warning "未检测到已知平台，跳过平台安装"
+            print_info "Python CLI 已安装，可使用: tdd-toolkit init"
             ;;
     esac
     
-    print_success "安装完成！"
+    # 清理临时文件
+    if [ "$need_cleanup" = true ]; then
+        echo ""
+        print_info "清理临时文件..."
+        rm -rf "$source_dir"
+    fi
+    
+    # 显示使用说明
+    echo ""
+    echo "======================================"
+    echo "  安装完成！"
+    echo "======================================"
+    echo ""
+    echo "使用方法:"
+    echo "  1. 重启你的 AI 助手（如需要）"
+    echo "  2. 使用以下命令测试:"
+    echo ""
+    echo "     # 方式1: 使用 CLI"
+    echo "     tdd-toolkit init"
+    echo ""
+    echo "     # 方式2: 使用 Python 模块"
+    echo "     python3 -m tdd_toolkit init"
+    echo ""
+    echo "  3. 在项目中使用:"
+    echo "     cd /path/to/your/project"
+    echo "     tdd-toolkit init"
+    echo "     tdd-toolkit pipeline --project my-feature"
+    echo ""
 }
 
 # 运行主程序
