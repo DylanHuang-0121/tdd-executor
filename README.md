@@ -9,6 +9,78 @@
 
 ---
 
+## 🚀 快速开始
+
+### 安装
+
+**自动安装（推荐）**
+
+支持三个平台：Aone Copilot、Claude Code、CodeFuse
+
+```bash
+cd /path/to/tdd-executor
+./install.sh
+```
+
+安装脚本会自动检测你的环境并安装到正确的位置。
+
+**手动安装**
+
+<details>
+<summary>Aone Copilot</summary>
+
+```bash
+# 复制到技能目录
+cp -r . ~/.aone_copilot/skills/tdd-pipeline-executor/
+
+# 重启 Aone Copilot
+```
+
+</details>
+
+<details>
+<summary>Claude Code</summary>
+
+```bash
+# 只需要 SKILL.md
+mkdir -p ~/.claude/skills/tdd-pipeline-executor
+cp SKILL.md ~/.claude/skills/tdd-pipeline-executor/
+
+# 重启 Claude Code
+```
+
+</details>
+
+<details>
+<summary>CodeFuse</summary>
+
+```bash
+# 复制到技能目录
+cp -r . ~/.codefuse/skills/tdd-pipeline-executor/
+
+# 重启 CodeFuse
+```
+
+</details>
+
+### 卸载
+
+```bash
+./uninstall.sh
+```
+
+### 验证安装
+
+```bash
+# 初始化
+python -m tdd_toolkit init
+
+# 查看帮助
+python -m tdd_toolkit --help
+```
+
+---
+
 ## 🎯 核心设计
 
 ### **分工明确**
@@ -28,51 +100,6 @@
 │  - 单元测试 → 写代码 → 验证 → 调试         │
 │  - 记录问题供 OpenClaw 保鲜              │
 └─────────────────────────────────────────┘
-```
-
----
-
-## 🚀 使用方式
-
-### **1. 基本用法**
-
-```python
-from tdd_pipeline import TDDPipeline
-
-# 定义任务列表（Flatten，不区分阶段）
-task_list = [
-    {"action": "read_requirements"},
-    {"action": "write_test", "output": "feature_test.java"},
-    {"action": "run_test", "expected": "failure"},
-    {"action": "write_code", "output": "feature.java"},
-    {"action": "run_test", "expected": "success", "pass_gate": True},
-    {"action": "record_issue"}  # 记录问题
-]
-
-# 创建执行器
-pipeline = TDDPipeline("feature-name", task_list)
-
-# 执行（断点续写自动进行）
-while pipeline.execute_next_task():
-    pass
-```
-
-### **2. 调试循环**
-
-```python
-task_list = [
-    {"action": "read_requirements"},
-    {"action": "write_test", "output": "test.java"},
-    {"action": "run_test", "expected": "failure"},
-    {"action": "write_code", "output": "code.java"},
-    {"action": "run_test", "expected": "failure"},  # 第一次失败
-    {"action": "fix_implementation"},              # 修复
-    {"action": "record_issue"},                    # 记录问题
-    {"action": "run_test", "expected": "success", "pass_gate": True},
-]
-
-pipeline = TDDPipeline("debug-loop", task_list)
-# 执行...
 ```
 
 ---
