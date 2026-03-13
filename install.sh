@@ -2,6 +2,7 @@
 #
 # TDD Pipeline Executor 安装脚本
 # 支持 CodeFuse、Aone Copilot 和 Claude Code
+# 支持本地安装和远程安装
 #
 
 set -e
@@ -15,7 +16,18 @@ NC='\033[0m' # No Color
 
 # 技能名称
 SKILL_NAME="tdd-pipeline-executor"
-SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKILL_REPO="https://github.com/your-username/tdd-executor.git"  # 替换为你的仓库地址
+
+# 检测安装模式
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/SKILL.md" ]; then
+    # 本地安装模式
+    SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    INSTALL_MODE="local"
+else
+    # 远程安装模式
+    SKILL_DIR=$(mktemp -d)
+    INSTALL_MODE="remote"
+fi
 
 # 打印带颜色的消息
 print_info() {
@@ -32,6 +44,36 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}✗${NC} $1"
+}
+
+# 清理临时文件
+cleanup() {
+    if [ "$INSTALL_MODE" = "remote" ] && [ -d "$SKILL_DIR" ]; then
+        print_info "清理临时文件..."
+        rm -rf "$SKILL_DIR"
+    fi
+}
+
+# 注册清理函数
+trap cleanup EXIT
+
+# 下载技能文件（远程模式）
+download_skill() {
+    print_info "正在从远程仓库下载..."
+    
+    # 检查 git 是否可用
+    if ! command -v git &> /dev/null; then
+        print_error "未找到 git 命令，无法下载"
+        exit 1
+    fi
+    
+    # 克隆仓库到临时目录
+    git clone --depth 1 "$SKILL_REPO" "$SKILL_DIR" || {
+        print_error "克隆仓库失败"
+        exit 1
+    }
+    
+    print_success "下载完成"
 }
 
 # 检测平台
@@ -202,6 +244,11 @@ main() {
     echo "║   TDD Pipeline Executor 安装程序        ║"
     echo "╚════════════════════════════════════════╝"
     echo ""
+    
+    # 如果是远程模式，先下载文件
+    if [ "$INSTALL_MODE" = "remote" ]; then
+        download_skill
+    fi
     
     # 检查必要文件
     if [ ! -f "$SKILL_DIR/SKILL.md" ]; then
