@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 
 # 技能名称
 SKILL_NAME="tdd-pipeline-executor"
-SKILL_REPO="https://github.com/your-username/tdd-executor.git"  # 替换为你的仓库地址
+SKILL_REPO="https://github.com/DylanHuang-0121/tdd-executor.git"
 
 # 检测安装模式
 if [ -f "$(dirname "${BASH_SOURCE[0]}")/SKILL.md" ]; then
