@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # TDD Executor 安装脚本
-# 支持 CodeFuse、Aone Copilot 和 Claude Code
+# 安装到当前项目的 .aone_copilot/skills/ 目录下
 #
 
 set -e
@@ -23,19 +23,6 @@ print_success() { echo -e "${GREEN}✓${NC} $1"; }
 print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
 print_error() { echo -e "${RED}✗${NC} $1"; }
 
-# 检测平台
-detect_platform() {
-    if [ -d "$HOME/.aone_copilot/skills" ]; then
-        echo "aone_copilot"
-    elif [ -d "$HOME/.claude/skills" ]; then
-        echo "claude_code"
-    elif [ -d "$HOME/.codefuse/skills" ]; then
-        echo "codefuse"
-    else
-        echo "unknown"
-    fi
-}
-
 # 下载仓库到临时目录
 download_repo() {
     local temp_dir=$(mktemp -d)
@@ -50,56 +37,13 @@ download_repo() {
     echo "$temp_dir"
 }
 
-# 安装 Python CLI 到用户空间
-install_python_cli() {
+# 安装到项目的 .aone_copilot/skills/ 目录
+install_to_project_skills() {
     local source_dir="$1"
+    local project_dir="${2:-$(pwd)}"
+    local target_dir="$project_dir/.aone_copilot/skills/$SKILL_NAME"
     
-    print_info "安装 TDD Executor CLI..."
-    
-    # 创建安装目录
-    local install_dir="$HOME/.tdd-executor"
-    mkdir -p "$install_dir"
-    
-    # 复制所有 Python 文件到安装目录
-    cp "$source_dir/__main__.py" "$install_dir/"
-    cp "$source_dir/utils.py" "$install_dir/"
-    cp "$source_dir/tdd_pipeline.py" "$install_dir/"
-    cp "$source_dir/issue_tracker.py" "$install_dir/"
-    cp "$source_dir/tdd_runner.py" "$install_dir/"
-    cp "$source_dir/requirements.txt" "$install_dir/"
-    
-    print_success "Python 文件已复制到: $install_dir"
-    
-    # 创建可执行脚本
-    local bin_dir="$HOME/.local/bin"
-    mkdir -p "$bin_dir"
-    
-    # 创建 tdd-executor 命令
-    cat > "$bin_dir/tdd-executor" << 'WRAPPER_EOF'
-#!/bin/bash
-# TDD Executor CLI Wrapper
-INSTALL_DIR="$HOME/.tdd-executor"
-cd "$INSTALL_DIR"
-python3 __main__.py "$@"
-WRAPPER_EOF
-    chmod +x "$bin_dir/tdd-executor"
-    
-    print_success "CLI 命令已安装: $bin_dir/tdd-executor"
-    
-    # 检查 PATH
-    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-        print_warning "请将以下内容添加到 ~/.zshrc 或 ~/.bashrc:"
-        echo '  export PATH="$HOME/.local/bin:$PATH"'
-        echo "  然后运行: source ~/.zshrc"
-    fi
-}
-
-# 安装到 Aone Copilot
-install_aone_copilot() {
-    local source_dir="$1"
-    local target_dir="$HOME/.aone_copilot/skills/$SKILL_NAME"
-    
-    print_info "安装到 Aone Copilot..."
+    print_info "安装到项目技能目录: $target_dir"
     
     # 创建目录
     mkdir -p "$target_dir"
@@ -110,9 +54,10 @@ install_aone_copilot() {
         print_success "SKILL.md 已复制"
     else
         print_error "找不到 SKILL.md"
+        exit 1
     fi
     
-    # 复制 Python 文件
+    # 复制所有 Python 文件
     for file in __main__.py utils.py tdd_pipeline.py issue_tracker.py tdd_runner.py requirements.txt; do
         if [ -f "$source_dir/$file" ]; then
             cp "$source_dir/$file" "$target_dir/"
@@ -120,55 +65,28 @@ install_aone_copilot() {
         fi
     done
     
-    # 设置权限
-    chmod +x "$target_dir"/*.py 2>/dev/null || true
+    # 创建项目内的可执行脚本
+    cat > "$target_dir/tdd-executor" << 'WRAPPER_EOF'
+#!/bin/bash
+# TDD Executor CLI Wrapper
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+python3 __main__.py "$@"
+WRAPPER_EOF
+    chmod +x "$target_dir/tdd-executor"
     
-    print_success "已安装到: $target_dir"
+    print_success "CLI 命令已创建: $target_dir/tdd-executor"
     
-    # 验证并显示文件列表
+    # 创建 pit-library 和 tdd-sessions 目录
+    mkdir -p "$project_dir/pit-library"
+    mkdir -p "$project_dir/tdd-sessions"
+    
+    print_success "已创建 pit-library/ 和 tdd-sessions/ 目录"
+    
+    # 显示安装结果
     echo ""
     print_info "验证安装结果:"
     ls -lh "$target_dir" | tail -n +2
-}
-
-# 安装到 Claude Code
-install_claude_code() {
-    local source_dir="$1"
-    local target_dir="$HOME/.claude/skills/$SKILL_NAME"
-    
-    print_info "安装到 Claude Code..."
-    
-    mkdir -p "$target_dir"
-    cp "$source_dir/SKILL.md" "$target_dir/"
-    
-    # 复制 Python 文件（Claude Code 也需要）
-    for file in __main__.py utils.py tdd-pipeline.py issue-tracker.py tdd-runner.py requirements.txt; do
-        if [ -f "$source_dir/$file" ]; then
-            cp "$source_dir/$file" "$target_dir/"
-        fi
-    done
-    
-    print_success "已安装到: $target_dir"
-}
-
-# 安装到 CodeFuse
-install_codefuse() {
-    local source_dir="$1"
-    local target_dir="$HOME/.codefuse/skills/$SKILL_NAME"
-    
-    print_info "安装到 CodeFuse..."
-    
-    mkdir -p "$target_dir"
-    cp "$source_dir/SKILL.md" "$target_dir/"
-    
-    # 复制 Python 文件
-    for file in __main__.py utils.py tdd-pipeline.py issue-tracker.py tdd-runner.py requirements.txt; do
-        if [ -f "$source_dir/$file" ]; then
-            cp "$source_dir/$file" "$target_dir/"
-        fi
-    done
-    
-    print_success "已安装到: $target_dir"
 }
 
 # 主安装流程
@@ -180,7 +98,37 @@ main() {
     echo ""
     
     local source_dir=""
+    local project_dir=""
     local need_cleanup=false
+    
+    # 解析参数
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -d|--dir)
+                project_dir="$2"
+                shift 2
+                ;;
+            -h|--help)
+                echo "用法: ./install.sh [-d|--dir <项目目录>]"
+                echo ""
+                echo "选项:"
+                echo "  -d, --dir    指定安装到的项目目录（默认：当前目录）"
+                echo "  -h, --help   显示帮助信息"
+                echo ""
+                echo "示例:"
+                echo "  ./install.sh                      # 安装到当前项目的 .aone_copilot/skills/"
+                echo "  ./install.sh -d /path/to/project  # 安装到指定项目的 .aone_copilot/skills/"
+                echo ""
+                echo "安装位置:"
+                echo "  <项目目录>/.aone_copilot/skills/tdd-pipeline-executor/"
+                exit 0
+                ;;
+            *)
+                print_error "未知参数: $1"
+                exit 1
+                ;;
+        esac
+    done
     
     # 检测安装模式
     if [ -f "./SKILL.md" ]; then
@@ -205,32 +153,8 @@ main() {
     print_success "源文件准备完成: $source_dir"
     echo ""
     
-    # 安装 Python CLI（全局可用）
-    install_python_cli "$source_dir"
-    echo ""
-    
-    # 检测并安装到平台
-    print_info "检测运行环境..."
-    platform=$(detect_platform)
-    
-    case $platform in
-        aone_copilot)
-            print_success "检测到 Aone Copilot"
-            install_aone_copilot "$source_dir"
-            ;;
-        claude_code)
-            print_success "检测到 Claude Code"
-            install_claude_code "$source_dir"
-            ;;
-        codefuse)
-            print_success "检测到 CodeFuse"
-            install_codefuse "$source_dir"
-            ;;
-        *)
-            print_warning "未检测到已知平台，跳过平台安装"
-            print_info "Python CLI 已安装，可使用: tdd-executor init"
-            ;;
-    esac
+    # 安装到项目技能目录
+    install_to_project_skills "$source_dir" "$project_dir"
     
     # 清理临时文件
     if [ "$need_cleanup" = true ]; then
@@ -240,21 +164,23 @@ main() {
     fi
     
     # 显示使用说明
+    local final_project_dir="${project_dir:-$(pwd)}"
     echo ""
     echo "======================================"
     echo "  安装完成！"
     echo "======================================"
     echo ""
+    echo "安装位置:"
+    echo "  技能目录: $final_project_dir/.aone_copilot/skills/$SKILL_NAME/"
+    echo "  CLI 命令: $final_project_dir/.aone_copilot/skills/$SKILL_NAME/tdd-executor"
+    echo "  数据目录: $final_project_dir/pit-library/ 和 $final_project_dir/tdd-sessions/"
+    echo ""
     echo "使用方法:"
-    echo "  1. 重启你的 AI 助手（如需要）"
-    echo "  2. 使用以下命令测试:"
+    echo "  1. 重启 Aone Copilot（如果正在运行）"
+    echo "  2. 技能会自动加载: tdd-pipeline-executor"
     echo ""
-    echo "     tdd-executor init"
-    echo ""
-    echo "  3. 在项目中使用:"
-    echo "     cd /path/to/your/project"
-    echo "     tdd-executor init"
-    echo "     tdd-executor pipeline --project my-feature"
+    echo "  3. 或使用 CLI:"
+    echo "     $final_project_dir/.aone_copilot/skills/$SKILL_NAME/tdd-executor init"
     echo ""
 }
 
