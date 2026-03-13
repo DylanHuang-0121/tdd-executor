@@ -22,19 +22,19 @@ print_info() { echo -e "${BLUE}ℹ ${NC}$1"; }
 print_success() { echo -e "${GREEN}✓${NC} $1"; }
 print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
 print_error() { echo -e "${RED}✗${NC} $1"; }
-
 # 下载仓库到临时目录
 download_repo() {
     local temp_dir=$(mktemp -d)
     print_info "正在从 GitHub 下载..."
     
-    git clone --depth 1 "$SKILL_REPO" "$temp_dir" || {
+    # 静默克隆，避免输出干扰返回值
+    if git clone --quiet --depth 1 "$SKILL_REPO" "$temp_dir" 2>/dev/null; then
+        echo "$temp_dir"
+    else
         print_error "克隆仓库失败"
         rm -rf "$temp_dir"
         exit 1
-    }
-    
-    echo "$temp_dir"
+    fi
 }
 
 # 安装到项目的 .aone_copilot/skills/ 目录
