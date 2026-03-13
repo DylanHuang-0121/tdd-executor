@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# TDD Pipeline Executor 安装脚本
+# TDD Executor 安装脚本
 # 支持 CodeFuse、Aone Copilot 和 Claude Code
 #
 
@@ -50,36 +50,41 @@ download_repo() {
     echo "$temp_dir"
 }
 
-# 安装 Python 模块到用户空间
-install_python_module() {
+# 安装 Python CLI 到用户空间
+install_python_cli() {
     local source_dir="$1"
     
-    print_info "安装 Python CLI 工具..."
+    print_info "安装 TDD Executor CLI..."
     
-    # 创建 Python 包目录
-    local python_dir="$HOME/.tdd-toolkit"
-    mkdir -p "$python_dir"
+    # 创建安装目录
+    local install_dir="$HOME/.tdd-executor"
+    mkdir -p "$install_dir"
     
-    # 复制必要的 Python 文件
-    cp -r "$source_dir/tdd-toolkit" "$python_dir/" 2>/dev/null || true
-    cp "$source_dir/__main__.py" "$python_dir/" 2>/dev/null || true
-    cp "$source_dir/utils.py" "$python_dir/" 2>/dev/null || true
-    cp "$source_dir/tdd-pipeline.py" "$python_dir/" 2>/dev/null || true
-    cp "$source_dir/issue-tracker.py" "$python_dir/" 2>/dev/null || true
-    cp "$source_dir/tdd-runner.py" "$python_dir/" 2>/dev/null || true
-    cp "$source_dir/requirements.txt" "$python_dir/" 2>/dev/null || true
+    # 复制所有 Python 文件到安装目录
+    cp "$source_dir/__main__.py" "$install_dir/"
+    cp "$source_dir/utils.py" "$install_dir/"
+    cp "$source_dir/tdd_pipeline.py" "$install_dir/"
+    cp "$source_dir/issue_tracker.py" "$install_dir/"
+    cp "$source_dir/tdd_runner.py" "$install_dir/"
+    cp "$source_dir/requirements.txt" "$install_dir/"
+    
+    print_success "Python 文件已复制到: $install_dir"
     
     # 创建可执行脚本
     local bin_dir="$HOME/.local/bin"
     mkdir -p "$bin_dir"
     
-    cat > "$bin_dir/tdd-toolkit" << 'EOF'
+    # 创建 tdd-executor 命令
+    cat > "$bin_dir/tdd-executor" << 'WRAPPER_EOF'
 #!/bin/bash
-python3 -m tdd_toolkit "$@"
-EOF
-    chmod +x "$bin_dir/tdd-toolkit"
+# TDD Executor CLI Wrapper
+INSTALL_DIR="$HOME/.tdd-executor"
+cd "$INSTALL_DIR"
+python3 __main__.py "$@"
+WRAPPER_EOF
+    chmod +x "$bin_dir/tdd-executor"
     
-    print_success "Python CLI 已安装到: $bin_dir/tdd-toolkit"
+    print_success "CLI 命令已安装: $bin_dir/tdd-executor"
     
     # 检查 PATH
     if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
@@ -99,9 +104,6 @@ install_aone_copilot() {
     # 创建目录
     mkdir -p "$target_dir"
     
-    # 复制所有必要文件
-    print_info "复制文件到: $target_dir"
-    
     # 复制 SKILL.md
     if [ -f "$source_dir/SKILL.md" ]; then
         cp "$source_dir/SKILL.md" "$target_dir/"
@@ -110,16 +112,8 @@ install_aone_copilot() {
         print_error "找不到 SKILL.md"
     fi
     
-    # 复制 Python 模块目录
-    if [ -d "$source_dir/tdd-toolkit" ]; then
-        cp -r "$source_dir/tdd-toolkit" "$target_dir/"
-        print_success "tdd-toolkit/ 目录已复制"
-    else
-        print_warning "找不到 tdd-toolkit 目录"
-    fi
-    
-    # 复制其他必要文件
-    for file in __main__.py utils.py tdd-pipeline.py issue-tracker.py tdd-runner.py requirements.txt; do
+    # 复制 Python 文件
+    for file in __main__.py utils.py tdd_pipeline.py issue_tracker.py tdd_runner.py requirements.txt; do
         if [ -f "$source_dir/$file" ]; then
             cp "$source_dir/$file" "$target_dir/"
             print_success "$file 已复制"
@@ -147,6 +141,13 @@ install_claude_code() {
     mkdir -p "$target_dir"
     cp "$source_dir/SKILL.md" "$target_dir/"
     
+    # 复制 Python 文件（Claude Code 也需要）
+    for file in __main__.py utils.py tdd-pipeline.py issue-tracker.py tdd-runner.py requirements.txt; do
+        if [ -f "$source_dir/$file" ]; then
+            cp "$source_dir/$file" "$target_dir/"
+        fi
+    done
+    
     print_success "已安装到: $target_dir"
 }
 
@@ -160,6 +161,13 @@ install_codefuse() {
     mkdir -p "$target_dir"
     cp "$source_dir/SKILL.md" "$target_dir/"
     
+    # 复制 Python 文件
+    for file in __main__.py utils.py tdd-pipeline.py issue-tracker.py tdd-runner.py requirements.txt; do
+        if [ -f "$source_dir/$file" ]; then
+            cp "$source_dir/$file" "$target_dir/"
+        fi
+    done
+    
     print_success "已安装到: $target_dir"
 }
 
@@ -167,7 +175,7 @@ install_codefuse() {
 main() {
     echo ""
     echo "╔════════════════════════════════════════╗"
-    echo "║   TDD Pipeline Executor 安装程序        ║"
+    echo "║     TDD Executor 安装程序               ║"
     echo "╚════════════════════════════════════════╝"
     echo ""
     
@@ -197,8 +205,8 @@ main() {
     print_success "源文件准备完成: $source_dir"
     echo ""
     
-    # 安装 Python 模块（全局可用）
-    install_python_module "$source_dir"
+    # 安装 Python CLI（全局可用）
+    install_python_cli "$source_dir"
     echo ""
     
     # 检测并安装到平台
@@ -220,7 +228,7 @@ main() {
             ;;
         *)
             print_warning "未检测到已知平台，跳过平台安装"
-            print_info "Python CLI 已安装，可使用: tdd-toolkit init"
+            print_info "Python CLI 已安装，可使用: tdd-executor init"
             ;;
     esac
     
@@ -241,16 +249,12 @@ main() {
     echo "  1. 重启你的 AI 助手（如需要）"
     echo "  2. 使用以下命令测试:"
     echo ""
-    echo "     # 方式1: 使用 CLI"
-    echo "     tdd-toolkit init"
-    echo ""
-    echo "     # 方式2: 使用 Python 模块"
-    echo "     python3 -m tdd_toolkit init"
+    echo "     tdd-executor init"
     echo ""
     echo "  3. 在项目中使用:"
     echo "     cd /path/to/your/project"
-    echo "     tdd-toolkit init"
-    echo "     tdd-toolkit pipeline --project my-feature"
+    echo "     tdd-executor init"
+    echo "     tdd-executor pipeline --project my-feature"
     echo ""
 }
 
