@@ -1,0 +1,8 @@
+# TDD Pipeline - Optional Dependencies
+# 本工具不需要外部依赖，仅使用 Python 标准库
+
+# 以下库可选，用于扩展功能：
+# pytest>=7.0.0           # Java 测试执行支持
+# python-jose[cryptography]>=3.3.0  # Webhook 签名验证
+# requests>=2.28.0       # API 调用
+# rich>=13.0.0           # 输出美化

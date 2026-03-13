@@ -1,0 +1,16 @@
+{
+  "id": "v001",
+  "timestamp": "2026-03-13T10:30:00",
+  "feature": "文件读取模块",
+  "error_type": "FileNotFoundError",
+  "message": "配置文件 config.json 未找到",
+  "stack_trace": "Traceback (most recent call last):\n  File \"test_config.py\", line 10, in test_read_config\n    with open('config.json') as f:\nFileNotFoundError: [Errno 2] No such file or directory: 'config.json'",
+  "root_cause": "使用相对路径读取文件，但未确保文件存在",
+  "fix": "使用 Path.resolve() 获取绝对路径",
+  "solution": "读取文件前先检查 Path(config_path).exists()",
+  "severity": "high",
+  "status": "fixed",
+  "frequency": 3,
+  "related_test": "test_config.py::test_read_config",
+  "prevention": "所有文件操作前用 Path.exists() 检查"
+}
