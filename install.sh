@@ -113,19 +113,31 @@ main() {
                 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
                 shift
                 ;;
+            -p|--project)
+                # 安装到当前工作目录（项目目录）
+                project_dir="$(pwd)"
+                shift
+                ;;
             -h|--help)
                 echo "用法: ./install.sh [选项]"
                 echo ""
                 echo "选项:"
+                echo "  -p, --project      安装到当前工作目录（推荐：在目标项目目录下执行）"
                 echo "  -d, --dir <目录>   指定安装到的项目目录"
                 echo "  -l, --local        安装到当前脚本所在目录（本地开发模式）"
                 echo "  -h, --help         显示帮助信息"
                 echo ""
                 echo "示例:"
-                echo "  ./install.sh                      # 安装到当前工作目录的 .aone_copilot/skills/"
-                echo "  ./install.sh -d /path/to/project  # 安装到指定项目的 .aone_copilot/skills/"
-                echo "  ./install.sh -l                   # 安装到脚本所在目录（本地开发）"
-                echo "  cd /my/project && ./install.sh    # 在项目目录下运行，安装到该项目"
+                echo "  # 在目标项目目录下执行（推荐）"
+                echo "  cd /path/to/my-project"
+                echo "  /path/to/tdd-executor/install.sh -p"
+                echo ""
+                echo "  # 或直接运行（默认安装到当前工作目录）"
+                echo "  cd /path/to/my-project"
+                echo "  /path/to/tdd-executor/install.sh"
+                echo ""
+                echo "  # 指定目标目录"
+                echo "  ./install.sh -d /path/to/project"
                 echo ""
                 echo "安装位置:"
                 echo "  <项目目录>/.aone_copilot/skills/tdd-pipeline-executor/"
