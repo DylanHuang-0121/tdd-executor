@@ -66,11 +66,24 @@ class TDDPipeline:
         if self.pipeline_file.exists():
             with open(self.pipeline_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
+                # 加载 pipeline 节点数据
+                self.pipeline = []
+                for node_data in data.get('nodes', []):
+                    node = PipelineNode(
+                        id=node_data['id'],
+                        name=node_data['name'],
+                        status=PipelineStatus(node_data['status']),
+                        executed_at=node_data.get('executed_at'),
+                        result=node_data.get('result'),
+                        issues=node_data.get('issues'),
+                        next_allowed=node_data.get('next_allowed', True)
+                    )
+                    self.pipeline.append(node)
                 return PipelineStatus(data['status'])
         
         # 初始化新的流水线
         self._init_new_pipeline()
-        return PipelineStatus.PRE_START
+        return PipelineStatus.NOT_STARTED
     
     def _find_current_node(self) -> PipelineStatus:
         """找到当前应该执行的节点"""
@@ -92,7 +105,7 @@ class TDDPipeline:
         ]
         
         # 设置初始状态
-        self.pipeline[0].status = PipelineStatus.PRE_START
+        self.pipeline_status = PipelineStatus.NOT_STARTED
         self._save_pipeline_state()
         self._create_task_list_template()
     
@@ -184,7 +197,7 @@ class TDDPipeline:
         # 更新当前节点状态
         for node in self.pipeline:
             if node.id == target.lower().replace(" ", "_"):
-                node.status = PipelineStatus.COMPLETED
+                node.status = target_status
                 node.executed_at = timestamp()
         
         # 更新流水线状态
@@ -204,22 +217,33 @@ class TDDPipeline:
     
     def _check_progression_allowed(self, target: PipelineStatus) -> bool:
         """检查是否可以推进到目标节点"""
-        if target == PipelineStatus.PRE_START:
-            return True
+        # 定义有效的工作流节点顺序
+        workflow_nodes = [
+            PipelineStatus.PLANNING,
+            PipelineStatus.UNIT_TEST,
+            PipelineStatus.CODE_IMPLEMENTATION,
+            PipelineStatus.COMPILE,
+            PipelineStatus.RUN_TESTS,
+            PipelineStatus.DEBUGGING,
+            PipelineStatus.TEST_PASSED,
+        ]
         
-        # 找到目标节点的前一个节点
-        prev_index = list(PipelineStatus).index(target) - 1
-        if prev_index < 0:
-            return True
+        # 如果目标不在工作流中，不允许推进
+        if target not in workflow_nodes:
+            return False
         
-        prev_status = list(PipelineStatus)[prev_index]
-        current = self._find_current_node()
+        # 如果当前是 NOT_STARTED，只能推进到第一个节点 planning
+        if self.pipeline_status == PipelineStatus.NOT_STARTED:
+            return target == PipelineStatus.PLANNING
         
-        # 检查前一个节点是否完成
-        if current == prev_status or current == PipelineStatus.COMPLETED:
-            return True
+        try:
+            current_index = workflow_nodes.index(self.pipeline_status)
+            target_index = workflow_nodes.index(target)
+        except ValueError:
+            return False
         
-        return False
+        # 只能推进到下一个节点
+        return target_index == current_index + 1
     
     def _create_task_doc(self, target: str) -> str:
         """创建对应的任务文档"""
@@ -374,7 +398,7 @@ TODO: 记录遇到的问题
     
     def complete_pipeline(self):
         """完成整个流水线"""
-        self.pipeline_status = PipelineStatus.COMPLETED
+        self.pipeline_status = PipelineStatus.TEST_PASSED
         
         # 最后一条记录
         completion_record = {
