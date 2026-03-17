@@ -144,7 +144,7 @@ def main():
         sys.exit(1)
     
     if sys.argv[1] == "--init":
-        print("✅ TDD Toolkit 初始化完成")
+        print("✅ TDD Pipeline 初始化完成")
         print(f"   pit-library 路径：{PIT_LIBRARY}")
         print(f"   tdd-sessions 路径：{TDD_SESSIONS}")
         return

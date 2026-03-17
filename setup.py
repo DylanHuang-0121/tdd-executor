@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TDD Toolkit Setup
+TDD Pipeline Setup
 """
 import os
 from pathlib import Path
@@ -17,7 +17,7 @@ def setup():
         path.mkdir(parents=True, exist_ok=True)
         print(f"✅ 创建目录：{path}")
     
-    print("\n🚀 TDD Toolkit 初始化完成！")
+    print("\n🚀 TDD Pipeline 初始化完成！")
     print("\n下一步:")
     print("  1. 创建你的测试：python -m pytest --collect-only")
     print("  2. 运行测试：python -m pytest tests/")

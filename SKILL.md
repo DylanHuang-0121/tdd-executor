@@ -1,6 +1,6 @@
 ---
 name: tdd-pipeline-executor
-description: Execute TDD workflow with strong constraints using TDD Toolkit CLI. Use when implementing features with strict TDD process, checkpointing, issue tracking, and breakpoint continuation.
+description: Execute TDD workflow with strong constraints using TDD Pipeline CLI. Use when implementing features with strict TDD process, checkpointing, issue tracking, and breakpoint continuation.
 ---
 
 # TDD Pipeline 执行器（强约束版）
@@ -84,7 +84,7 @@ python3 __main__.py init
 
 **输出示例：**
 ```
-✅ TDD Toolkit 已初始化
+✅ TDD Pipeline 已初始化
    pit-library: /path/to/project/pit-library
    tdd-sessions: /path/to/project/tdd-sessions
 ```
@@ -448,5 +448,5 @@ project/
 
 ---
 
-**维护者**：TDD Toolkit Team  
+**维护者**：TDD Pipeline Team  
 **最后更新**：2026-03-13

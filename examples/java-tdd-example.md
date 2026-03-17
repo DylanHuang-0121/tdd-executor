@@ -328,12 +328,12 @@ python run-java-tdd-test.py tests/java/CardManagementServiceUnitTest.java
 
 ---
 
-## 📦 整合到你的 TDD Toolkit
+## 📦 整合到你的 TDD Pipeline
 
-在 `tdd-toolkit` 根目录创建：
+在 `tdd-executor` 根目录创建：
 
 ```
-tdd-toolkit/
+tdd-executor/
 ├── examples/
 │   └── java-tdd-example.md  # 本文件
 │   └── tdd/
