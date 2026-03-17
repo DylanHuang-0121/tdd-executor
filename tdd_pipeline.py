@@ -95,13 +95,13 @@ class TDDPipeline:
     def _init_new_pipeline(self):
         """初始化新的流水线"""
         self.pipeline = [
-            PipelineNode("planning", "任务规划", PipelineStatus.NOT_STARTED),
-            PipelineNode("unit_test", "编写单元测试", PipelineStatus.NOT_STARTED),
-            PipelineNode("code_impl", "实现代码", PipelineStatus.NOT_STARTED),
-            PipelineNode("compile", "编译/检查", PipelineStatus.NOT_STARTED),
-            PipelineNode("run_tests", "运行测试", PipelineStatus.NOT_STARTED),
-            PipelineNode("debug", "回溯调试", PipelineStatus.NOT_STARTED),
-            PipelineNode("done", "完成", PipelineStatus.NOT_STARTED),
+            PipelineNode("planning", "任务规划", PipelineStatus.NOT_STARTED, next_allowed=False),
+            PipelineNode("unit_test", "编写单元测试", PipelineStatus.NOT_STARTED, next_allowed=False),
+            PipelineNode("code_impl", "实现代码", PipelineStatus.NOT_STARTED, next_allowed=False),
+            PipelineNode("compile", "编译/检查", PipelineStatus.NOT_STARTED, next_allowed=False),
+            PipelineNode("run_tests", "运行测试", PipelineStatus.NOT_STARTED, next_allowed=False),
+            PipelineNode("debug", "回溯调试", PipelineStatus.NOT_STARTED, next_allowed=False),
+            PipelineNode("done", "完成", PipelineStatus.NOT_STARTED, next_allowed=False),
         ]
         
         # 设置初始状态
@@ -194,11 +194,12 @@ class TDDPipeline:
             print("请先完成上一个任务节点")
             return False
         
-        # 更新当前节点状态
+        # 更新目标节点状态
         for node in self.pipeline:
             if node.id == target.lower().replace(" ", "_"):
                 node.status = target_status
                 node.executed_at = timestamp()
+                node.next_allowed = False  # 新节点默认不允许跳过，需显式完成
         
         # 更新流水线状态
         self.pipeline_status = target_status
@@ -212,6 +213,8 @@ class TDDPipeline:
         
         print(f"✅ 已推进到：{target_status.value}")
         print(f"📝 任务文档：{task_doc}")
+        print(f"\n⚠️ 完成当前节点任务后，请执行：")
+        print(f"   python3 __main__.py complete --project {self.project_name}")
         
         return True
     
@@ -243,7 +246,57 @@ class TDDPipeline:
             return False
         
         # 只能推进到下一个节点
-        return target_index == current_index + 1
+        if target_index != current_index + 1:
+            return False
+        
+        # ===== 新增：验证当前节点任务是否已完成 =====
+        current_node = self._get_current_pipeline_node()
+        if current_node and current_node.status != PipelineStatus.NOT_STARTED:
+            if not current_node.next_allowed:
+                print(f"\n❌ 当前节点 [{current_node.name}] 任务尚未完成！")
+                print(f"   请先完成当前节点的任务，然后使用以下命令标记完成：")
+                print(f"   python3 __main__.py complete --project {self.project_name}")
+                return False
+        
+        return True
+    
+    def _get_current_pipeline_node(self) -> Optional[PipelineNode]:
+        """获取当前正在执行的节点"""
+        status_to_node_id = {
+            PipelineStatus.PLANNING: "planning",
+            PipelineStatus.UNIT_TEST: "unit_test",
+            PipelineStatus.CODE_IMPLEMENTATION: "code_impl",
+            PipelineStatus.COMPILE: "compile",
+            PipelineStatus.RUN_TESTS: "run_tests",
+            PipelineStatus.DEBUGGING: "debug",
+        }
+        
+        node_id = status_to_node_id.get(self.pipeline_status)
+        if node_id:
+            for node in self.pipeline:
+                if node.id == node_id:
+                    return node
+        return None
+    
+    def complete_current_node(self, result: str = ""):
+        """标记当前节点为已完成"""
+        current_node = self._get_current_pipeline_node()
+        if not current_node:
+            print("❌ 没有正在执行的节点")
+            return False
+        
+        # 标记节点完成
+        current_node.next_allowed = True
+        current_node.result = result
+        current_node.status = self.pipeline_status  # 保持当前状态，但标记允许下一步
+        
+        self._save_pipeline_state()
+        
+        print(f"✅ 节点 [{current_node.name}] 已标记为完成")
+        print(f"📝 结果：{result if result else '无'}")
+        print(f"\n现在可以推进到下一个节点")
+        
+        return True
     
     def _create_task_doc(self, target: str) -> str:
         """创建对应的任务文档"""

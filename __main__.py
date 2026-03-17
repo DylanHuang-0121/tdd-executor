@@ -15,7 +15,7 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="TDD Executor - 强约束 TDD 流水线")
-    parser.add_argument("command", choices=["pipeline", "record", "list", "init", "progress"],
+    parser.add_argument("command", choices=["pipeline", "record", "list", "init", "progress", "complete"],
                         help="操作命令")
     parser.add_argument("--project", "-p", help="项目名称")
     parser.add_argument("--target", "-t", help="目标节点", default=None)
@@ -82,6 +82,16 @@ def main():
         
         pipeline = TDDPipeline(args.project)
         pipeline.progress_to(args.target)
+    
+    elif args.command == "complete":
+        if not args.project:
+            print("❌ 需要提供 --project 参数")
+            print("\n用法示例:")
+            print("  tdd-executor complete --project webhook-approval")
+            sys.exit(1)
+        
+        pipeline = TDDPipeline(args.project)
+        pipeline.complete_current_node(args.message or "")
 
 if __name__ == "__main__":
     main()

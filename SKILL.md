@@ -125,8 +125,9 @@ python3 __main__.py progress --project <project-name> --target <target-node>
 
 **强约束机制：**
 - 必须按顺序推进
-- 脚本会检查前一个节点是否完成
+- 脚本会检查前一个节点是否**已标记完成**
 - 不能跳过节点
+- 每个节点推进后需要**显式完成**
 
 **参数：**
 - `--project, -p`: 项目名称（必需）
@@ -140,13 +141,45 @@ python3 __main__.py progress --project <project-name> --target <target-node>
 5. `run_tests` - 运行测试
 6. `debugging` - 调试回溯
 
-**错误示例：**
+**成功推进示例：**
 ```
-❌ 不能推进到 code_implementation - 前一个节点未完成
-请先完成上一个任务节点
+✅ 已推进到：unit_test
+📝 任务文档：tdd-sessions/tasks/unit-test.md
+
+⚠️ 完成当前节点任务后，请执行：
+   python3 __main__.py complete --project webhook-approval
 ```
 
-### 4. 记录问题
+**错误示例（未完成当前节点）：**
+```
+❌ 当前节点 [任务规划] 任务尚未完成！
+   请先完成当前节点的任务，然后使用以下命令标记完成：
+   python3 __main__.py complete --project webhook-approval
+```
+
+### 4. 标记节点完成
+
+```bash
+python3 __main__.py complete --project <project-name> [--message "完成说明"]
+```
+
+**作用：**
+- 标记当前节点为已完成
+- 允许推进到下一个节点
+
+**参数：**
+- `--project, -p`: 项目名称（必需）
+- `--message, -m`: 完成说明（可选）
+
+**输出示例：**
+```
+✅ 节点 [任务规划] 已标记为完成
+📝 结果：需求已明确，功能点已识别
+
+现在可以推进到下一个节点
+```
+
+### 5. 记录问题
 
 ```bash
 python3 __main__.py record \
@@ -172,7 +205,7 @@ python3 __main__.py record \
    节点：run_tests
 ```
 
-### 5. 查看问题列表
+### 6. 查看问题列表
 
 ```bash
 python3 __main__.py list --feature <feature-name>
@@ -354,21 +387,27 @@ python3 __main__.py pipeline --project webhook-approval
 # 3. 规划阶段
 python3 __main__.py progress --project webhook-approval --target planning
 # Agent 创建任务文档，规划功能点
+# Agent 执行规划任务...
+python3 __main__.py complete --project webhook-approval --message "需求已明确，功能点已识别"
 
 # 4. 测试阶段
 python3 __main__.py progress --project webhook-approval --target unit_test
 # Agent 编写测试代码
 # 运行测试（预期失败）
+python3 __main__.py complete --project webhook-approval --message "测试用例已编写完成"
 
 # 5. 实现阶段
 python3 __main__.py progress --project webhook-approval --target code_implementation
 # Agent 编写实现代码
 # 运行测试（预期通过）
+python3 __main__.py complete --project webhook-approval --message "实现代码已完成，测试通过"
 
 # 6. 验证阶段
 python3 __main__.py progress --project webhook-approval --target compile
+python3 __main__.py complete --project webhook-approval --message "编译检查通过"
 python3 __main__.py progress --project webhook-approval --target run_tests
 # 确保所有测试通过
+python3 __main__.py complete --project webhook-approval --message "所有测试通过"
 
 # 7. 如果失败，记录问题
 python3 __main__.py record \
@@ -381,6 +420,7 @@ python3 __main__.py record \
 python3 __main__.py progress --project webhook-approval --target debugging
 # Agent 分析问题，修复代码
 # 重新运行测试
+python3 __main__.py complete --project webhook-approval --message "问题已修复"
 ```
 
 ## 输出文件结构
