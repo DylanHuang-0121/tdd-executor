@@ -108,16 +108,24 @@ main() {
                 project_dir="$2"
                 shift 2
                 ;;
+            -l|--local)
+                # 安装到本地（当前脚本所在目录或克隆目录）
+                project_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+                shift
+                ;;
             -h|--help)
-                echo "用法: ./install.sh [-d|--dir <项目目录>]"
+                echo "用法: ./install.sh [选项]"
                 echo ""
                 echo "选项:"
-                echo "  -d, --dir    指定安装到的项目目录（默认：当前目录）"
-                echo "  -h, --help   显示帮助信息"
+                echo "  -d, --dir <目录>   指定安装到的项目目录"
+                echo "  -l, --local        安装到当前脚本所在目录（本地开发模式）"
+                echo "  -h, --help         显示帮助信息"
                 echo ""
                 echo "示例:"
-                echo "  ./install.sh                      # 安装到当前项目的 .aone_copilot/skills/"
+                echo "  ./install.sh                      # 安装到当前工作目录的 .aone_copilot/skills/"
                 echo "  ./install.sh -d /path/to/project  # 安装到指定项目的 .aone_copilot/skills/"
+                echo "  ./install.sh -l                   # 安装到脚本所在目录（本地开发）"
+                echo "  cd /my/project && ./install.sh    # 在项目目录下运行，安装到该项目"
                 echo ""
                 echo "安装位置:"
                 echo "  <项目目录>/.aone_copilot/skills/tdd-pipeline-executor/"
@@ -129,6 +137,12 @@ main() {
                 ;;
         esac
     done
+    
+    # 如果没有指定目录，默认使用当前工作目录
+    if [ -z "$project_dir" ]; then
+        project_dir="$(pwd)"
+        print_info "未指定安装目录，使用当前工作目录: $project_dir"
+    fi
     
     # 检测安装模式
     if [ -f "./SKILL.md" ]; then
